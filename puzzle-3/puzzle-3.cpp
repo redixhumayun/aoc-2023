@@ -112,4 +112,5 @@ int main() {
     debug_log("", true, "");
   }
   std::cout << "Sum " << sum << '\n';
+  return 0;
 }

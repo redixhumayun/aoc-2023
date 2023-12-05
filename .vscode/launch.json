@@ -8,11 +8,18 @@
       "program": "${workspaceFolder}/build/puzzle-3",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/build",
       "environment": [],
       "externalConsole": false,
       "MIMode": "lldb",
-      "preLaunchTask": "CMake Build"
+      "logging": {
+        "trace": true,
+        "traceResponse": true,
+        "engineLogging": true,
+        "programOutput": true,
+        "traceMessages": true,
+        "exceptions": true
+      }
     }
   ]
 }
