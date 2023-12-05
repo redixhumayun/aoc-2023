@@ -5,21 +5,13 @@
       "name": "LLDB - Launch",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/puzzle-3",
+      "program": "${workspaceFolder}/build/puzzle-4",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}/build",
       "environment": [],
       "externalConsole": false,
-      "MIMode": "lldb",
-      "logging": {
-        "trace": true,
-        "traceResponse": true,
-        "engineLogging": true,
-        "programOutput": true,
-        "traceMessages": true,
-        "exceptions": true
-      }
+      "MIMode": "lldb"
     }
   ]
 }

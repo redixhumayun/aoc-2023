@@ -1,4 +1,5 @@
 {
+  "github.copilot.editor.enableAutoCompletions": false,
   "files.associations": {
     "__bit_reference": "cpp",
     "__config": "cpp",
