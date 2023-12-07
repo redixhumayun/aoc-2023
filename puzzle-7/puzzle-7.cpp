@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,46 +11,74 @@ struct Hand {
   int score;
 };
 
+std::unordered_map<char, int> card_precedence{
+    {'A', 14}, {'K', 13}, {'Q', 12}, {'T', 11}, {'9', 10}, {'8', 9}, {'7', 8},
+    {'6', 7},  {'5', 6},  {'4', 5},  {'3', 4},  {'2', 3},  {'J', 2}};
+
+std::unordered_map<int, int> hand_scores = {
+    {5, 12}, {4, 10}, {3, 5}, {2, 2}, {1, 0}};
+
+auto sort_cards(const Hand& a, const Hand& b) -> bool {
+  if (a.score != b.score) {
+    return a.score < b.score;
+  }
+
+  //  compare the cards character by character
+  for (int i = 0; i < a.cards.size(); i++) {
+    const char& card_1 = a.cards[i];
+    const char& card_2 = b.cards[i];
+    if (card_precedence[card_1] != card_precedence[card_2]) {
+      return card_precedence[card_1] < card_precedence[card_2];
+    }
+  }
+  return false;
+}
+
+auto decide_score(std::vector<int> counts, int joker_counts) -> int {
+  int total_slots = 5;
+  int max_count;
+  if (counts.empty()) {
+    max_count = 0;
+  } else {
+    max_count = counts[0];
+  }
+  int remaining_slots = total_slots - max_count;
+
+  int usable_jokers = std::min(joker_counts, remaining_slots);
+  max_count += usable_jokers;
+
+  int score = hand_scores[max_count];
+  if (max_count == 3 && counts[1] == 2) {
+    return score + hand_scores[counts[1]];
+  }
+
+  if (max_count == 2 && counts[1] == 2) {
+    return score + hand_scores[counts[1]];
+  }
+
+  return score;
+}
+
 auto calculate_scores(std::vector<Hand>& hands) -> std::vector<Hand> {
   for (auto& hand : hands) {
     std::vector<int> counts;
-    std::unordered_map<char, int> card_count;
+    std::unordered_map<char, int> card_count{};
+    int j_count = 0;
     for (const char& card : hand.cards) {
-      card_count[card]++;
+      if (card != 'J') {
+        card_count[card]++;
+      } else {
+        j_count++;
+      }
     }
 
+    debug_log("Hand ", true, hand.cards);
     for (auto& pair : card_count) {
       counts.push_back(pair.second);
     }
 
     std::sort(counts.begin(), counts.end(), std::greater<int>());
-
-    if (counts[0] == 5) {
-      //  5 of a kind
-      hand.score = 7;
-    } else if (counts[0] == 4) {
-      //  4 of a kind
-      hand.score = 6;
-    } else if (counts[0] == 3) {
-      if (counts[1] == 2) {
-        //  full house
-        hand.score = 5;
-      } else {
-        //  trips
-        hand.score = 4;
-      }
-    } else if (counts[0] == 2) {
-      if (counts[1] == 2) {
-        //  double pair
-        hand.score = 3;
-      } else {
-        //  pair
-        hand.score = 2;
-      }
-    } else {
-      //  high card
-      hand.score = 1;
-    }
+    hand.score = decide_score(counts, j_count);
   }
   return hands;
 }
@@ -87,27 +116,7 @@ int main() {
 
   std::vector<Hand> hands_with_score = calculate_scores(hands);
 
-  std::unordered_map<char, int> card_precedence{
-      {'A', 14}, {'K', 13}, {'Q', 12}, {'J', 11}, {'T', 10}, {'9', 9}, {'8', 8},
-      {'7', 7},  {'6', 6},  {'5', 5},  {'4', 4},  {'3', 3},  {'2', 2},
-  };
-
-  std::sort(hands_with_score.begin(), hands_with_score.end(),
-            [&card_precedence](const Hand& a, const Hand& b) {
-              if (a.score != b.score) {
-                return a.score < b.score;
-              }
-
-              //  compare the cards character by character
-              for (int i = 0; i < a.cards.size(); i++) {
-                const char& card_1 = a.cards[i];
-                const char& card_2 = b.cards[i];
-                if (card_precedence[card_1] != card_precedence[card_2]) {
-                  return card_precedence[card_1] < card_precedence[card_2];
-                }
-              }
-              return false;
-            });
+  std::sort(hands_with_score.begin(), hands_with_score.end(), sort_cards);
 
   debug_log("*****", true, " ");
   //  print out the list of hands_with_score
