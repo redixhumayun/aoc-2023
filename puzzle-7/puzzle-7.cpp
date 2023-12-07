@@ -11,11 +11,11 @@ struct Hand {
   int score;
 };
 
-std::unordered_map<char, int> card_precedence{
+const std::unordered_map<char, int> card_precedence{
     {'A', 14}, {'K', 13}, {'Q', 12}, {'T', 11}, {'9', 10}, {'8', 9}, {'7', 8},
     {'6', 7},  {'5', 6},  {'4', 5},  {'3', 4},  {'2', 3},  {'J', 2}};
 
-std::unordered_map<int, int> hand_scores = {
+const std::unordered_map<int, int> hand_scores = {
     {5, 12}, {4, 10}, {3, 5}, {2, 2}, {1, 0}};
 
 auto sort_cards(const Hand& a, const Hand& b) -> bool {
@@ -27,8 +27,8 @@ auto sort_cards(const Hand& a, const Hand& b) -> bool {
   for (int i = 0; i < a.cards.size(); i++) {
     const char& card_1 = a.cards[i];
     const char& card_2 = b.cards[i];
-    if (card_precedence[card_1] != card_precedence[card_2]) {
-      return card_precedence[card_1] < card_precedence[card_2];
+    if (card_precedence.at(card_1) != card_precedence.at(card_2)) {
+      return card_precedence.at(card_1) < card_precedence.at(card_2);
     }
   }
   return false;
@@ -47,13 +47,13 @@ auto decide_score(std::vector<int> counts, int joker_counts) -> int {
   int usable_jokers = std::min(joker_counts, remaining_slots);
   max_count += usable_jokers;
 
-  int score = hand_scores[max_count];
+  int score = hand_scores.at(max_count);
   if (max_count == 3 && counts[1] == 2) {
-    return score + hand_scores[counts[1]];
+    return score + hand_scores.at(counts[1]);
   }
 
   if (max_count == 2 && counts[1] == 2) {
-    return score + hand_scores[counts[1]];
+    return score + hand_scores.at(counts[1]);
   }
 
   return score;
