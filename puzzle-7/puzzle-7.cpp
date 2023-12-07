@@ -10,38 +10,7 @@ struct Hand {
   int score;
 };
 
-int main() {
-  std::ifstream file("puzzle-7-input.txt");
-
-  if (!file) {
-    std::cerr << "Error opening file\n";
-    return 1;
-  }
-
-  std::string line;
-
-  std::vector<Hand> hands;
-  while (getline(file, line)) {
-    std::istringstream line_stream(line);
-    std::string part;
-
-    getline(line_stream, part, ' ');
-
-    std::string cards = part;
-
-    getline(line_stream, part);
-    int bid = std::stoi(part);
-
-    auto hand = Hand{cards, bid, 0};
-    hands.push_back(hand);
-  }
-
-  //  print out hands
-  for (auto& hand : hands) {
-    debug_log("Cards ", true, hand.cards, " Bid ", hand.bid);
-  }
-
-  //  calculate the score of each hand
+auto calculate_scores(std::vector<Hand>& hands) -> std::vector<Hand> {
   for (auto& hand : hands) {
     std::vector<int> counts;
     std::unordered_map<char, int> card_count;
@@ -82,13 +51,48 @@ int main() {
       hand.score = 1;
     }
   }
+  return hands;
+}
+
+int main() {
+  std::ifstream file("puzzle-7-input.txt");
+
+  if (!file) {
+    std::cerr << "Error opening file\n";
+    return 1;
+  }
+
+  std::string line;
+
+  std::vector<Hand> hands;
+  while (getline(file, line)) {
+    std::istringstream line_stream(line);
+    std::string part;
+
+    getline(line_stream, part, ' ');
+
+    std::string cards = part;
+
+    getline(line_stream, part);
+    int bid = std::stoi(part);
+
+    auto hand = Hand{cards, bid, 0};
+    hands.push_back(hand);
+  }
+
+  //  print out hands
+  for (auto& hand : hands) {
+    debug_log("Cards ", true, hand.cards, " Bid ", hand.bid);
+  }
+
+  std::vector<Hand> hands_with_score = calculate_scores(hands);
 
   std::unordered_map<char, int> card_precedence{
       {'A', 14}, {'K', 13}, {'Q', 12}, {'J', 11}, {'T', 10}, {'9', 9}, {'8', 8},
       {'7', 7},  {'6', 6},  {'5', 5},  {'4', 4},  {'3', 3},  {'2', 2},
   };
 
-  std::sort(hands.begin(), hands.end(),
+  std::sort(hands_with_score.begin(), hands_with_score.end(),
             [&card_precedence](const Hand& a, const Hand& b) {
               if (a.score != b.score) {
                 return a.score < b.score;
@@ -106,16 +110,16 @@ int main() {
             });
 
   debug_log("*****", true, " ");
-  //  print out the list of hands
-  for (auto& hand : hands) {
+  //  print out the list of hands_with_score
+  for (auto& hand : hands_with_score) {
     debug_log("Cards ", true, hand.cards, " Bid ", hand.bid, " Score ",
               hand.score);
   }
 
   //  calculate the final score
   int final_score = 0;
-  for (int i = 0; i < hands.size(); i++) {
-    const auto& hand = hands[i];
+  for (int i = 0; i < hands_with_score.size(); i++) {
+    const auto& hand = hands_with_score[i];
     final_score += (i + 1) * hand.bid;
   }
   debug_log("Final score ", true, final_score);
