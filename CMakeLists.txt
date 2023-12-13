@@ -18,6 +18,7 @@ add_executable(puzzle-4 puzzle-4/puzzle-4.cpp)
 add_executable(puzzle-5 puzzle-5/puzzle-5.cpp)
 add_executable(puzzle-6 puzzle-6/puzzle-6.cpp)
 add_executable(puzzle-7 puzzle-7/puzzle-7.cpp)
+add_executable(puzzle-8 puzzle-8/puzzle-8.cpp)
 
 # Copy input files to the build directory
 configure_file(puzzle-1/puzzle-1-input.txt ${CMAKE_BINARY_DIR}/puzzle-1-input.txt COPYONLY)
@@ -33,5 +34,8 @@ configure_file(puzzle-6/puzzle-6-input.txt ${CMAKE_BINARY_DIR}/puzzle-6-input.tx
 configure_file(puzzle-6/puzzle-6-test.txt ${CMAKE_BINARY_DIR}/puzzle-6-test.txt COPYONLY)
 configure_file(puzzle-7/puzzle-7-input.txt ${CMAKE_BINARY_DIR}/puzzle-7-input.txt COPYONLY)
 configure_file(puzzle-7/puzzle-7-test.txt ${CMAKE_BINARY_DIR}/puzzle-7-test.txt COPYONLY)
+configure_file(puzzle-8/puzzle-8-input.txt ${CMAKE_BINARY_DIR}/puzzle-8-input.txt COPYONLY)
+configure_file(puzzle-8/puzzle-8-test.txt ${CMAKE_BINARY_DIR}/puzzle-8-test.txt COPYONLY)
+
 
 
