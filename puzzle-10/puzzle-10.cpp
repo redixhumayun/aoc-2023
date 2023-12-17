@@ -26,6 +26,7 @@ unordered_map<char, pair<set<Direction>, set<Direction>>> pipe_connections{
      {{{-1, 0}, {0, -1}, {0, 1}, {1, 0}}, {{0, -1}, {0, 1}, {1, 0}, {-1, 0}}}}};
 
 std::vector<std::vector<char>> maze;
+std::vector<std::vector<char>> boundary;
 
 struct bfs_state {
   int x;
@@ -34,25 +35,13 @@ struct bfs_state {
 };
 
 bool is_valid_move(char current_pipe, int dx, int dy, char next_pipe) {
-  debug_log("Checking if ", true, dx, ",", dy, " is a valid move from pipe ",
-            current_pipe, " to pipe ", next_pipe, ".");
   auto outputs = pipe_connections[current_pipe].second;
-  debug_log("The outputs are ", true, "");
-  for (const auto& output : outputs) {
-    debug_log(" ", false, output.first, ",", output.second);
-  }
-  debug_log("", true, "");
   auto inputs = pipe_connections[next_pipe].first;
-  debug_log("The inputs are ", true, "");
-  for (const auto& input : inputs) {
-    debug_log(" ", false, input.first, ",", input.second);
-  }
-  debug_log("", true, "");
   return outputs.find({dx, dy}) != outputs.end() &&
          inputs.find({-dx, -dy}) != inputs.end();
 }
 
-void bfs(const pair<int, int>& start) {
+auto bfs(const pair<int, int>& start) -> vector<vector<int>> {
   int rows = maze.size();
   int cols = maze[0].size();
   vector<vector<int>> steps(rows, vector<int>(cols, -1));
@@ -63,8 +52,7 @@ void bfs(const pair<int, int>& start) {
 
   while (!q.empty()) {
     bfs_state current = q.front();
-    debug_log("The current state is ", true, current.x, ",", current.y,
-              " with ", current.steps, " steps.");
+    boundary[current.x][current.y] = '#';
     q.pop();
 
     vector<vector<int>> directions = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
@@ -81,11 +69,7 @@ void bfs(const pair<int, int>& start) {
       char current_pipe = maze[current.x][current.y];
       char new_pipe = maze[new_x][new_y];
 
-      debug_log("Moving to ", true, new_x, ", ", new_y, " with pipe ", new_pipe,
-                " from pipe ", current_pipe, ".");
-
       if (!is_valid_move(current_pipe, dx, dy, new_pipe)) {
-        debug_log("Invalid move", true, "");
         continue;
       }
 
@@ -98,9 +82,19 @@ void bfs(const pair<int, int>& start) {
   }
 
   //  print out the steps array
+  debug_log("The steps array", true, "");
   for (const auto& row : steps) {
-    for (const auto& step : row) {
-      debug_log(" ", false, step);
+    for (const auto& pipe : row) {
+      debug_log(" ", false, pipe);
+    }
+    debug_log("", true, "");
+  }
+
+  //  print out the boundary
+  debug_log("The boundary", true, "");
+  for (const auto& row : boundary) {
+    for (const auto& pipe : row) {
+      debug_log(" ", false, pipe);
     }
     debug_log("", true, "");
   }
@@ -114,8 +108,88 @@ void bfs(const pair<int, int>& start) {
       }
     }
   }
+
   debug_log("Furthest point from the start is ", false, max_steps,
             " steps away.");
+  return steps;
+}
+
+vector<vector<int>> expandMaze(const vector<vector<char>>& maze) {
+  int rows = maze.size();
+  int cols = maze[0].size();
+  vector<vector<int>> expandedMaze(rows * 3, vector<int>(cols * 3, 0));
+
+  for (int y = 0; y < rows; ++y) {
+    for (int x = 0; x < cols; ++x) {
+      int baseRow = y * 3;
+      int baseCol = x * 3;
+      char tile = maze[y][x];
+
+      // Mark the center as impassable
+      expandedMaze[baseRow + 1][baseCol + 1] = 1;
+
+      // For each pipe, open paths in the corresponding directions
+      auto links = pipe_connections[tile].first;
+      for (auto& dir : links) {
+        expandedMaze[baseRow + 1 + dir.first][baseCol + 1 + dir.second] = 1;
+      }
+    }
+  }
+
+  //  print the expanded maze
+  debug_log("The expanded maze", true, "");
+  for (const auto& row : expandedMaze) {
+    for (const auto& pipe : row) {
+      debug_log(" ", false, pipe);
+    }
+    debug_log("", true, "");
+  }
+  return expandedMaze;
+}
+
+void floodFillFromBorder(vector<vector<int>>& maze, int x, int y) {
+  if (x < 0 || x >= maze[0].size() || y < 0 || y >= maze.size() ||
+      maze[y][x] != 0) {
+    return;
+  }
+
+  maze[y][x] = 2;  // Mark as visited
+  floodFillFromBorder(maze, x + 1, y);
+  floodFillFromBorder(maze, x - 1, y);
+  floodFillFromBorder(maze, x, y + 1);
+  floodFillFromBorder(maze, x, y - 1);
+}
+
+void performFloodFillFromBorders(vector<vector<int>>& expandedMaze) {
+  int rows = expandedMaze.size();
+  int cols = expandedMaze[0].size();
+
+  // Flood fill from the top and bottom of each column
+  for (int x = 0; x < cols; ++x) {
+    floodFillFromBorder(expandedMaze, x, 0);  // Top edge of each column
+    floodFillFromBorder(expandedMaze, x,
+                        rows - 1);  // Bottom edge of each column
+  }
+
+  // Flood fill from the left and right of each row
+  for (int y = 0; y < rows; ++y) {
+    floodFillFromBorder(expandedMaze, 0, y);         // Left edge of each row
+    floodFillFromBorder(expandedMaze, cols - 1, y);  // Right edge of each row
+  }
+}
+
+int countEnclosedTiles(const vector<vector<char>>& maze,
+                       const vector<vector<int>>& expandedMaze,
+                       vector<vector<int>> steps) {
+  int count = 0;
+  for (int row = 0; row < maze.size(); row++) {
+    for (int col = 0; col < maze[0].size(); col++) {
+      if (steps[row][col] == -1 && expandedMaze[row * 3][col * 3] != 2) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 int main() {
@@ -136,6 +210,7 @@ int main() {
       pipes.push_back(pipe);
     }
     maze.push_back(pipes);
+    boundary.push_back(pipes);
   }
 
   //  print the maze
@@ -160,5 +235,21 @@ int main() {
   debug_log("The starting point is ", true, starting_point.first, ",",
             starting_point.second, ".");
 
-  bfs(starting_point);
+  auto steps = bfs(starting_point);
+
+  vector<vector<int>> expandedMaze = expandMaze(maze);
+  performFloodFillFromBorders(expandedMaze);
+
+  //  print the expanded maze here after its been flood filled
+  debug_log("The expanded maze after flood fill", true, "");
+  for (const auto& row : expandedMaze) {
+    for (const auto& pipe : row) {
+      debug_log(" ", false, pipe);
+    }
+    debug_log("", true, "");
+  }
+
+  int enclosedTiles = countEnclosedTiles(maze, expandedMaze, steps);
+
+  debug_log("Number of tiles enclosed by the loop: ", false, enclosedTiles);
 }
