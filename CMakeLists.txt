@@ -22,6 +22,7 @@ add_executable(puzzle-8 puzzle-8/puzzle-8.cpp)
 add_executable(puzzle-9 puzzle-9/puzzle-9.cpp)
 add_executable(puzzle-10 puzzle-10/puzzle-10.cpp)
 add_executable(puzzle-17 puzzle-17/puzzle-17.cpp)
+add_executable(puzzle-17-alt puzzle-17/puzzle-17-alt.cpp)
 
 # Copy input files to the build directory
 configure_file(puzzle-1/puzzle-1-input.txt ${CMAKE_BINARY_DIR}/puzzle-1-input.txt COPYONLY)

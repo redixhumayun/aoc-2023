@@ -12,13 +12,13 @@
 
 using namespace std;
 
-const int MAX_MOVES = 3;
-const int INF = numeric_limits<int>::max();
+const int MAX_MOVES = 10;
+const int MIN_MOVES = 4;
 
 struct State {
   int x;
   int y;
-  pair<int, int> direction;
+  int direction;
   int count;
 };
 
@@ -31,8 +31,7 @@ namespace std {
 template <>
 struct hash<State> {
   size_t operator()(const State& s) const {
-    return hash<int>()(s.x) ^ hash<int>()(s.y) ^
-           hash<int>()(s.direction.first) ^ hash<int>()(s.direction.second) ^
+    return hash<int>()(s.x) ^ hash<int>()(s.y) ^ hash<int>()(s.direction) ^
            hash<int>()(s.count);
   }
 };
@@ -45,18 +44,9 @@ struct hash<pair<int, int>> {
 };
 }  // namespace std
 
-unordered_map<pair<int, int>, pair<int, int>> predecessor_map;
-unordered_set<pair<int, int>> visited;
-
-struct CompareState {
-  unordered_map<State, int>* cost_map;
-
-  CompareState() : cost_map(nullptr) {}
-
-  void set_cost_map(unordered_map<State, int>& map) { cost_map = &map; }
-
-  bool operator()(const State& a, const State& b) const {
-    return cost_map->at(a) > cost_map->at(b);
+struct Compare {
+  bool operator()(const pair<int, State>& a, const pair<int, State>& b) const {
+    return a.first > b.first;
   }
 };
 
@@ -68,98 +58,57 @@ bool is_current_state_valid(State current_state, int rows, int cols) {
 int find_least_heat_loss_path(const vector<vector<int>>& grid) {
   int rows = grid.size();
   int cols = grid[0].size();
+  priority_queue<pair<int, State>, vector<pair<int, State>>, Compare> pq;
+  unordered_set<State> visited;
   unordered_map<State, int> cost_map;
-  CompareState comp_state;
-  comp_state.set_cost_map(cost_map);
-  priority_queue<State, vector<State>, CompareState> pq(comp_state);
 
   const vector<pair<int, int>> directions = {
       {{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};  // Right, Down, Left, Up
 
-  //  initialize the cost map
-  for (int x = 0; x < rows; x++) {
-    for (int y = 0; y < cols; y++) {
-      for (const auto& dir : directions) {
-        State state{x, y, dir, 0};
-        cost_map[state] = INF;
-      }
-    }
-  }
-
-  //  initialize the cost map and the priority queue
-  for (const auto& direction : directions) {
-    State start_state{.x = 0, .y = 0, .direction = direction, .count = 0};
-    cost_map[start_state] = 0;
-    pq.push(start_state);
-  }
+  pq.push({0, {0, 0, -1, -1}});
 
   while (!pq.empty()) {
-    // get the state at the top of the queue
-    auto current_state = pq.top();
+    auto [cost, state] = pq.top();
     pq.pop();
 
-    pair<int, int> current_position = {current_state.x, current_state.y};
-
-    //  check if the current state has been visited
-    if (visited.find(current_position) != visited.end()) {
+    if (visited.find(state) != visited.end()) {
       continue;
     }
 
-    //  found the end state
-    if (current_state.x == rows - 1 && current_state.y == cols - 1) {
-      return cost_map[current_state];
-    }
+    visited.insert(state);
+    cost_map[state] = cost;
 
-    //  check if the current state is valid
-    if (!is_current_state_valid(current_state, rows, cols)) {
-      continue;
-    }
+    for (int i = 0; i < directions.size(); ++i) {
+      auto [d_row, d_col] = directions[i];
+      int new_row = state.x + d_row;
+      int new_col = state.y + d_col;
+      int new_direction = i;
+      int count = (new_direction != state.direction) ? 1 : state.count + 1;
 
-    //  find all neighbours and push valid ones onto the stack
-    for (const auto& direction : directions) {
-      auto new_x = current_state.x + direction.first;
-      auto new_y = current_state.y + direction.second;
+      bool is_not_same_dir = ((new_direction + 2) % 4) != state.direction;
 
-      if (visited.find({new_x, new_y}) != visited.end()) {
+      // bool is_valid = count <= MAX_MOVES;
+      bool is_valid =
+          count <= MAX_MOVES && (new_direction == state.direction ||
+                                 count >= MIN_MOVES || state.count == -1);
+
+      if (new_row < 0 || new_row >= rows || new_col < 0 || new_col >= cols ||
+          !is_not_same_dir || !is_valid) {
         continue;
       }
 
-      int new_count =
-          (direction == current_state.direction) ? current_state.count + 1 : 1;
-
-      if (new_count > MAX_MOVES || new_x < 0 || new_x >= rows || new_y < 0 ||
-          new_y >= cols) {
-        continue;
-      }
-
-      State new_state = {
-          .x = new_x,
-          .y = new_y,
-          .direction = direction,
-          .count = new_count,
-      };
-      if (cost_map.find(new_state) == cost_map.end()) {
-        cost_map[new_state] = INF;
-      }
-
-      int new_cost = cost_map[current_state] + grid[new_x][new_y];
-
-      if (new_cost < cost_map[new_state]) {
-        cost_map[new_state] = new_cost;
-        predecessor_map[{new_x, new_y}] =
-            pair<int, int>(current_state.x, current_state.y);
-        debug_log("Updating predecessor of ", false, new_x, ", ", new_y);
-        debug_log(" to ", true, current_state.x, ", ", current_state.y);
-        pq.push(new_state);
-      }
+      int new_cost = grid[new_row][new_col];
+      pq.push({cost + new_cost, {new_row, new_col, new_direction, count}});
     }
-
-    visited.insert(current_position);
   }
 
-  debug_log("Couldn't find a path to the bottom right, returning INF", true,
-            "");
-  return INF;
+  int ans = numeric_limits<int>::max();
+  for (const auto& [state, v] : cost_map) {
+    if (state.x == rows - 1 && state.y == cols - 1) {
+      ans = min(ans, v);
+    }
+  }
+  return ans;
 }
 
 int main() {
@@ -192,20 +141,4 @@ int main() {
 
   int output = find_least_heat_loss_path(grid);
   debug_log("The least heat loss path is ", true, output);
-
-  vector<pair<int, int>> path;
-  pair<int, int> current_pair = {grid.size() - 1, grid[0].size() - 1};
-  while (current_pair != pair<int, int>{0, 0}) {
-    debug_log("Current pair is ", true, current_pair.first, ",",
-              current_pair.second);
-    path.push_back(current_pair);
-    current_pair = predecessor_map[current_pair];
-  }
-  reverse(path.begin(), path.end());
-
-  debug_log("The path is ", true, "");
-  for (const auto& pair : path) {
-    debug_log(" ", true, pair.first, ",", pair.second);
-    debug_log("The element here is ", true, grid[pair.first][pair.second]);
-  }
 }
