@@ -5,7 +5,7 @@
       "name": "LLDB - Launch",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/puzzle-17",
+      "program": "${workspaceFolder}/build/puzzle-18",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}/build",
