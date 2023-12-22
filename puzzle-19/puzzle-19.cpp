@@ -14,7 +14,7 @@ struct Rule {
 
 struct Workflow {
   std::string name;
-  std::unordered_map<char, Rule> rules_map;
+  std::vector<Rule> rules;
   std::string default_destination;
 };
 
@@ -39,7 +39,7 @@ auto construct_workflow(std::string line) -> Workflow {
     std::string rule_condition = rule.substr(0, colon_pos);
     std::string destination = rule.substr(colon_pos + 1);
     Rule rule = {.condition = rule_condition, .destination = destination};
-    workflow.rules_map[rule_condition[0]] = rule;
+    workflow.rules.push_back(rule);
   }
   return workflow;
 }
@@ -79,46 +79,44 @@ auto does_rule_condition_pass(const char& op, int rule_value, int part_value)
 }
 
 auto process_part_through_workflow(
-    std::unordered_map<char, int> parts_ratings,
-    std::unordered_map<std::string, Workflow> graph) -> int {
-  auto workflow = graph["in"];
+    const std::unordered_map<char, int>& parts_ratings,
+    const std::unordered_map<std::string, Workflow>& graph) -> int {
+  auto workflow = graph.at("in");
   std::string destination = "";
+
   while (destination != "A" && destination != "R") {
-    auto rules_map = workflow.rules_map;
-    bool did_rule_pass = true;
-    for (const auto& [rule_part, rule] : rules_map) {
-      auto part_value_it = parts_ratings.find(rule_part);
+    bool did_rule_pass = false;
+
+    for (const auto& rule :
+         workflow.rules) {  // Iterate through vector of rules
+      auto part_value_it = parts_ratings.find(rule.condition[0]);
       if (part_value_it == parts_ratings.end()) {
         continue;
       }
       auto op = rule.condition[1];
       auto op_value = std::stoi(rule.condition.substr(2));
-      if (!does_rule_condition_pass(op, op_value, part_value_it->second)) {
-        did_rule_pass = false;
-      } else {
+      if (does_rule_condition_pass(op, op_value, part_value_it->second)) {
         destination = rule.destination;
-        if (destination != "A" && destination != "R" &&
-            graph.find(destination) == graph.end()) {
-          std::cerr << "Invalid destination\n";
-          break;
+        if (destination == "A" || destination == "R") {
+          break;  // Exit if the part is accepted or rejected
         }
-        workflow = graph[destination];
+        workflow = graph.at(destination);  // Update the current workflow
         did_rule_pass = true;
         break;
       }
     }
-    if (did_rule_pass == false) {
+
+    if (!did_rule_pass) {
       destination = workflow.default_destination;
-      if (destination != "A" && destination != "R" &&
-          graph.find(destination) == graph.end()) {
-        std::cerr << "Invalid destination\n";
-        break;
+      if (destination == "A" || destination == "R") {
+        break;  // Exit if the part is accepted or rejected
       }
-      workflow = graph[destination];
+      workflow = graph.at(destination);  // Update the current workflow
     }
   }
+
   if (destination == "A") {
-    //  calculate sum of values of parts_ratings
+    // Calculate sum of values of parts_ratings
     int sum = 0;
     for (const auto& [part, rating] : parts_ratings) {
       sum += rating;
@@ -168,10 +166,10 @@ int main() {
   debug_log("The workflows", true, "");
   for (const auto& [workflow_name, workflow] : graph) {
     debug_log("", true, workflow_name);
-    // print out the rules map
-    for (const auto& [key, rule] : workflow.rules_map) {
-      debug_log("The rule for ", true, key, " is ", rule.condition, ":",
-                rule.destination);
+    // print out the rules
+    for (const auto& rule : workflow.rules) {
+      debug_log("The rule for ", true, rule.condition[0], " is ",
+                rule.condition, ":", rule.destination);
     }
     debug_log("The default destination is ", true,
               workflow.default_destination);
