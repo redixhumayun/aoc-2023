@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <queue>
 #include <sstream>
 #include <string>
 
@@ -8,7 +9,9 @@
 using namespace std;
 
 struct Rule {
-  std::string condition;
+  char variable;
+  char operation;
+  int value;
   std::string destination;
 };
 
@@ -17,6 +20,108 @@ struct Workflow {
   std::vector<Rule> rules;
   std::string default_destination;
 };
+
+struct Range {
+  int low;
+  int high;
+};
+
+struct BFS_State {
+  std::string workflow_name;
+  Range xRange, mRange, aRange, sRange;
+};
+
+using Graph = std::unordered_map<std::string, Workflow>;
+
+auto update_range(char variable, char operation, int value, Range current_range)
+    -> Range {
+  switch (operation) {
+    case '<':
+      current_range.high = value - 1;
+      break;
+    case '>':
+      current_range.low = value + 1;
+      break;
+  }
+  return current_range;
+}
+
+auto is_state_valid(const BFS_State& current_state) -> bool {
+  return current_state.xRange.low <= current_state.xRange.high &&
+         current_state.mRange.low <= current_state.mRange.high &&
+         current_state.aRange.low <= current_state.aRange.high &&
+         current_state.sRange.low <= current_state.sRange.high;
+}
+
+auto bfs(const Graph& graph) -> long long {
+  std::queue<BFS_State> q;
+  auto start_node = graph.at("in");
+  q.push({.workflow_name = start_node.name,
+          .xRange = {1, 4000},
+          .mRange = {1, 4000},
+          .aRange = {1, 4000},
+          .sRange = {1, 4000}});
+
+  long long sum = 0;
+  while (!q.empty()) {
+    auto current_state = q.front();
+    q.pop();
+
+    //  check if this state is valid
+    if (!is_state_valid(current_state)) {
+      continue;
+    }
+
+    if (current_state.workflow_name == "R") {
+      //  terminal state to ignore
+      continue;
+    }
+    if (current_state.workflow_name == "A") {
+      //  calculate the total possible combinations and add it to the overall
+      //  sum
+      long long combinations =
+          (current_state.xRange.high - current_state.xRange.low + 1) *
+          (current_state.mRange.high - current_state.mRange.low + 1) *
+          (current_state.aRange.high - current_state.aRange.low + 1) *
+          (current_state.sRange.high - current_state.sRange.low + 1);
+      sum += combinations;
+      continue;
+    }
+    const Workflow& current_workflow = graph.at(current_state.workflow_name);
+    for (const auto& rule : current_workflow.rules) {
+      Range new_x = (rule.variable == 'x')
+                        ? update_range(rule.variable, rule.operation,
+                                       rule.value, current_state.xRange)
+                        : current_state.xRange;
+      Range new_m = (rule.variable == 'm')
+                        ? update_range(rule.variable, rule.operation,
+                                       rule.value, current_state.mRange)
+                        : current_state.mRange;
+      Range new_a = (rule.variable == 'a')
+                        ? update_range(rule.variable, rule.operation,
+                                       rule.value, current_state.aRange)
+                        : current_state.aRange;
+      Range new_s = (rule.variable == 's')
+                        ? update_range(rule.variable, rule.operation,
+                                       rule.value, current_state.sRange)
+                        : current_state.sRange;
+      BFS_State new_state = {.workflow_name = rule.destination,
+                             .xRange = new_x,
+                             .mRange = new_m,
+                             .aRange = new_a,
+                             .sRange = new_s};
+      q.push(new_state);
+    }
+    BFS_State new_state_default = {
+        .workflow_name = current_workflow.default_destination,
+        .xRange = current_state.xRange,
+        .mRange = current_state.mRange,
+        .aRange = current_state.aRange,
+        .sRange = current_state.sRange};
+    q.push(new_state_default);
+  }
+  return sum;
+}
 
 auto construct_workflow(std::string line) -> Workflow {
   int first_curly_brace_index = line.find('{');
@@ -38,7 +143,10 @@ auto construct_workflow(std::string line) -> Workflow {
     }
     std::string rule_condition = rule.substr(0, colon_pos);
     std::string destination = rule.substr(colon_pos + 1);
-    Rule rule = {.condition = rule_condition, .destination = destination};
+    Rule rule = {.variable = rule_condition[0],
+                 .operation = rule_condition[1],
+                 .value = std::stoi(rule_condition.substr(2)),
+                 .destination = destination};
     workflow.rules.push_back(rule);
   }
   return workflow;
@@ -62,97 +170,14 @@ auto get_parts_ratings(std::string line) -> std::unordered_map<char, int> {
   return parts_ratings;
 }
 
-auto does_rule_condition_pass(const char& op, int rule_value, int part_value)
-    -> bool {
-  switch (op) {
-    case '<':
-      return part_value < rule_value;
-      break;
-    case '>':
-      return part_value > rule_value;
-      break;
-    default:
-      std::cerr << "Invalid operator\n";
-      break;
-  }
-  return false;
-}
-
-auto process_part_through_workflow(
-    const std::unordered_map<char, int>& parts_ratings,
-    const std::unordered_map<std::string, Workflow>& graph) -> int {
-  auto workflow = graph.at("in");
-  std::string destination = "";
-
-  while (destination != "A" && destination != "R") {
-    bool did_rule_pass = false;
-
-    for (const auto& rule :
-         workflow.rules) {  // Iterate through vector of rules
-      auto part_value_it = parts_ratings.find(rule.condition[0]);
-      if (part_value_it == parts_ratings.end()) {
-        continue;
-      }
-      auto op = rule.condition[1];
-      auto op_value = std::stoi(rule.condition.substr(2));
-      if (does_rule_condition_pass(op, op_value, part_value_it->second)) {
-        destination = rule.destination;
-        if (destination == "A" || destination == "R") {
-          break;  // Exit if the part is accepted or rejected
-        }
-        workflow = graph.at(destination);  // Update the current workflow
-        did_rule_pass = true;
-        break;
-      }
-    }
-
-    if (!did_rule_pass) {
-      destination = workflow.default_destination;
-      if (destination == "A" || destination == "R") {
-        break;  // Exit if the part is accepted or rejected
-      }
-      workflow = graph.at(destination);  // Update the current workflow
-    }
-  }
-
-  if (destination == "A") {
-    // Calculate sum of values of parts_ratings
-    int sum = 0;
-    for (const auto& [part, rating] : parts_ratings) {
-      sum += rating;
-    }
-    return sum;
-  }
-  return 0;
-}
-
-auto process_parts_through_workflow(
-    std::vector<std::unordered_map<char, int>> parts_ratings_list,
-    std::unordered_map<std::string, Workflow> graph) -> int {
-  int sum = 0;
-  for (const auto& parts_ratings : parts_ratings_list) {
-    debug_log("", true, "");
-    debug_log("Processing the part ", true, "");
-    for (const auto& [part, rating] : parts_ratings) {
-      debug_log(" ", false, part, "=", rating);
-    }
-    debug_log("", true, "");
-    auto result = process_part_through_workflow(parts_ratings, graph);
-    debug_log("The result is ", true, result);
-    sum += result;
-  }
-  debug_log("", true, "");
-  return sum;
-}
-
 int main() {
-  std::ifstream input_file("puzzle-19-input.txt");
+  std::ifstream input_file("puzzle-19-test.txt");
   if (!input_file) {
     std::cerr << "Error opening file\n";
     return 1;
   }
 
-  std::unordered_map<std::string, Workflow> graph;
+  Graph graph;
 
   std::string line;
   while (getline(input_file, line)) {
@@ -168,32 +193,14 @@ int main() {
     debug_log("", true, workflow_name);
     // print out the rules
     for (const auto& rule : workflow.rules) {
-      debug_log("The rule for ", true, rule.condition[0], " is ",
-                rule.condition, ":", rule.destination);
+      debug_log("The rule is ", true, rule.variable, rule.operation, rule.value,
+                ": ", rule.destination);
     }
     debug_log("The default destination is ", true,
               workflow.default_destination);
     debug_log("", true, "");
   }
 
-  std::vector<std::unordered_map<char, int>> parts_ratings_list;
-  while (getline(input_file, line)) {
-    if (line.empty()) {
-      break;
-    }
-    auto parts_ratings = get_parts_ratings(line);
-    parts_ratings_list.push_back(parts_ratings);
-  }
-
-  //  print out the parts ratings
-  debug_log("The parts ratings", true, "");
-  for (const auto& parts_ratings : parts_ratings_list) {
-    for (const auto& [part, rating] : parts_ratings) {
-      debug_log(" ", false, part, "=", rating);
-    }
-    debug_log("", true, "");
-  }
-
-  auto sum = process_parts_through_workflow(parts_ratings_list, graph);
+  auto sum = bfs(graph);
   debug_log("The sum is ", true, sum);
 }
