@@ -8,30 +8,37 @@
 
 enum ModuleType { FlipFlop, Conjunction, Broadcaster };
 
+ModuleType determine_module_type(const string& module_name) {
+  if (module_name[0] == '%') {
+    return FlipFlop;
+  } else if (module_name[0] == '&') {
+    return Conjunction;
+  } else if (module_name == "broadcaster") {
+    return Broadcaster;
+  }
+  return Broadcaster;  // Default, adjust as needed
+}
+
 void parse_input_file(const string& filename,
                       unordered_map<string, unique_ptr<Module>>& modules) {
   ifstream file(filename);
+  vector<string> lines;
   string line;
 
+  // First Pass: Create all modules
   while (getline(file, line)) {
     stringstream ss(line);
-    string module_name, arrow, dest;
+    string module_name;
     ss >> module_name;
 
-    // Determine the module type and create it if not already created
-    ModuleType type;
-    if (module_name[0] == '%') {
-      type = FlipFlop;
-      module_name.erase(0, 1);  // Remove the prefix
-    } else if (module_name[0] == '&') {
-      type = Conjunction;
-      module_name.erase(0, 1);  // Remove the prefix
-    } else if (module_name == "broadcaster") {
-      type = Broadcaster;
+    // Remove prefix if any and determine module type
+    ModuleType type = determine_module_type(module_name);
+
+    if (type == FlipFlop || type == Conjunction) {
+      module_name.erase(0, 1);
     }
 
     if (modules.find(module_name) == modules.end()) {
-      // Create the module based on its type
       switch (type) {
         case FlipFlop:
           modules[module_name] = make_unique<FlipFlopModule>();
@@ -45,17 +52,29 @@ void parse_input_file(const string& filename,
       }
     }
 
-    // Parse the destinations
-    ss >> arrow;  // Read the "->"
+    lines.push_back(line);  // Store the line for the second pass
+  }
+
+  // Second Pass: Establish relationships
+  for (const auto& parsed_line : lines) {
+    stringstream ss(parsed_line);
+    string module_name, arrow, dest;
+    ss >> module_name >> arrow;
+
+    if (module_name != "broadcaster") {
+      module_name.erase(0, 1);
+    }
+
     while (ss >> dest) {
       if (dest.back() == ',') dest.pop_back();  // Remove trailing comma
       modules[module_name]->destinations.push_back(dest);
 
-      // For conjunction modules, initialize last_pulse for each input
-      if (type == Conjunction) {
+      // For conjunction modules, store inputs and initialize last_pulse
+      if (modules.find(dest) != modules.end() &&
+          modules[dest]->name == "Conjunction") {
         auto& conjunction_module =
-            dynamic_cast<ConjunctionModule&>(*modules[module_name]);
-        conjunction_module.last_pulse[dest] = false;
+            dynamic_cast<ConjunctionModule&>(*modules[dest]);
+        conjunction_module.state[module_name] = false;
       }
     }
   }
@@ -73,5 +92,13 @@ int main() {
       debug_log(dest, false, " ");
     }
     debug_log("", true, "");
+    if (class_ptr->name == "Conjunction") {
+      auto& conjunction_module = dynamic_cast<ConjunctionModule&>(*class_ptr);
+      debug_log("State is: ", false, "");
+      for (const auto& [input, pulse] : conjunction_module.state) {
+        debug_log(input, false, " ");
+      }
+      debug_log("", true, "");
+    }
   }
 }
