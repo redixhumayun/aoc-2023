@@ -126,5 +126,5 @@ void run_simulation(unordered_map<string, unique_ptr<Module>>& modules,
     run_simulation_helper(modules, pulse_queue, low_count, high_count);
     current_state = compute_state(modules);
     (*runs)++;
-  } while (current_state != initial_state);
+  } while (*runs < 1000);
 }
