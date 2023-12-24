@@ -33,10 +33,15 @@ add_executable(puzzle-17 puzzle-17/puzzle-17.cpp)
 add_executable(puzzle-17-alt puzzle-17/puzzle-17-alt.cpp)
 add_executable(puzzle-18 puzzle-18/puzzle-18.cpp)
 add_executable(puzzle-19 puzzle-19/puzzle-19.cpp)
-add_executable(puzzle-19-tests puzzle-19/puzzle-19-tests.cpp)
+# add_executable(puzzle-19-tests puzzle-19/puzzle-19-tests.cpp)
+# target_link_libraries(puzzle-19-tests gtest_main)
+# target_include_directories(puzzle-19-tests PRIVATE ${googletest_SOURCE_DIR}/include)
 
-target_link_libraries(puzzle-19-tests gtest_main)
-target_include_directories(puzzle-19-tests PRIVATE ${googletest_SOURCE_DIR}/include)
+# Puzzle 20 executables
+add_executable(puzzle-20 puzzle-20/puzzle-20.cpp puzzle-20/puzzle-20-impl.cpp)
+add_executable(puzzle-20-tests puzzle-20/puzzle-20-tests.cpp puzzle-20/puzzle-20-impl.cpp)
+target_link_libraries(puzzle-20-tests gtest_main)
+target_include_directories(puzzle-20-tests PRIVATE ${googletest_SOURCE_DIR}/include)
 
 
 # Copy input files to the build directory
@@ -65,6 +70,8 @@ configure_file(puzzle-18/puzzle-18-input.txt ${CMAKE_BINARY_DIR}/puzzle-18-input
 configure_file(puzzle-18/puzzle-18-test.txt ${CMAKE_BINARY_DIR}/puzzle-18-test.txt COPYONLY)
 configure_file(puzzle-19/puzzle-19-input.txt ${CMAKE_BINARY_DIR}/puzzle-19-input.txt COPYONLY)
 configure_file(puzzle-19/puzzle-19-test.txt ${CMAKE_BINARY_DIR}/puzzle-19-test.txt COPYONLY)
+configure_file(puzzle-20/puzzle-20-input.txt ${CMAKE_BINARY_DIR}/puzzle-20-input.txt COPYONLY)
+configure_file(puzzle-20/puzzle-20-test.txt ${CMAKE_BINARY_DIR}/puzzle-20-test.txt COPYONLY)
 
 
 
