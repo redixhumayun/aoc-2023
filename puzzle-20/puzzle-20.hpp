@@ -21,6 +21,7 @@ using PulseQueue = queue<PulseInfo>;
 class Module {
  public:
   string name;
+  string key;
   vector<string> destinations;
 
   virtual ~Module() = default;
@@ -58,5 +59,16 @@ class BroadcastModule : public Module {
 
 auto compute_state(unordered_map<string, unique_ptr<Module>>& modules)
     -> std::unordered_map<std::string, std::string>;
+
+void run_simulation(unordered_map<string, unique_ptr<Module>>&, PulseQueue&,
+                    int*, int*, int*);
+
+class UntypedModule : public Module {
+ public:
+  UntypedModule() { name = "UntypedModule"; }
+  void receive_pulse(bool pulse, const string& source_module,
+                     PulseQueue& pulse_queue) override{};
+  string get_state() const override { return ""; };
+};
 
 #endif

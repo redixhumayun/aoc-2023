@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "puzzle-20.hpp"
 
 void FlipFlopModule::receive_pulse(bool pulse, const string& source,
@@ -6,19 +7,35 @@ void FlipFlopModule::receive_pulse(bool pulse, const string& source,
     //  if pulse is high, do nothing
     return;
   }
+
+  //  if the module has no destinations, do nothing
+  if (this->destinations.size() == 0) {
+    this->state = !this->state ? true : false;
+    return;
+  }
+
   if (this->state == false) {
     this->state = true;
-    pulse_queue.push({this->name, destinations.front(), true});
+    for (const auto& destination : destinations) {
+      pulse_queue.push({this->key, destination, true});
+    }
     return;
   }
   this->state = false;
-  pulse_queue.push({this->name, destinations.front(), false});
+  for (const auto& destination : destinations) {
+    pulse_queue.push({this->key, destination, false});
+  }
 }
 
 string FlipFlopModule::get_state() const { return this->state ? "1" : "0"; }
 
 void ConjunctionModule::receive_pulse(bool pulse, const string& source,
                                       PulseQueue& pulse_queue) {
+  if (this->state.find(source) == this->state.end()) {
+    std::string error_message = "Source not found for the module " + this->key +
+                                " where the source is " + source;
+    throw runtime_error(error_message);
+  }
   this->state[source] = pulse;
   bool all_inputs_high = true;
   for (const auto& [module, module_state] : this->state) {
@@ -30,13 +47,13 @@ void ConjunctionModule::receive_pulse(bool pulse, const string& source,
   if (all_inputs_high) {
     //  send a low pulse on the queue for all destinations
     for (const auto& destination : destinations) {
-      pulse_queue.push({this->name, destination, false});
+      pulse_queue.push({this->key, destination, false});
     }
     return;
   }
   //  send a high pulse on the queue for all destinations
   for (const auto& destination : destinations) {
-    pulse_queue.push({this->name, destination, true});
+    pulse_queue.push({this->key, destination, true});
   }
 }
 
@@ -51,7 +68,7 @@ string ConjunctionModule::get_state() const {
 void BroadcastModule::receive_pulse(bool pulse, const string& source,
                                     PulseQueue& pulse_queue) {
   for (const auto& destination : destinations) {
-    pulse_queue.push({this->name, destination, pulse});
+    pulse_queue.push({this->key, destination, pulse});
   }
 }
 
@@ -66,9 +83,13 @@ auto compute_state(unordered_map<string, unique_ptr<Module>>& modules)
   return state;
 }
 
-void run_simulation(unordered_map<string, unique_ptr<Module>>& modules,
-                    PulseQueue& pulse_queue) {
-  auto initial_state = compute_state(modules);
+void run_simulation_helper(unordered_map<string, unique_ptr<Module>>& modules,
+                           PulseQueue& pulse_queue, int* low_count,
+                           int* high_count) {
+  debug_log("**** New Run Start ****", true, "");
+  debug_log("Source: ", true, "Button", " Destination: ", "broadcaster",
+            " Pulse: ", "0");
+  (*low_count)++;  //  this is the button signal being sent to the broadcaster
   auto modules_it = modules.find("broadcaster");
   if (modules_it == modules.end()) {
     throw runtime_error("No broadcaster module found");
@@ -77,12 +98,33 @@ void run_simulation(unordered_map<string, unique_ptr<Module>>& modules,
   auto destinations = modules_it->second->destinations;
   for (const auto& destination : destinations) {
     pulse_queue.push(
-        {.source = "broadcaster", .destination = destination, .pulse = true});
+        {.source = "broadcaster", .destination = destination, .pulse = false});
   }
 
   //  now process everything in queue
   while (!pulse_queue.empty()) {
     const auto& [source, destination, pulse] = pulse_queue.front();
+    debug_log("Source: ", true, source, " Destination: ", destination,
+              " Pulse: ", pulse ? "1" : "0", "");
+    pulse_queue.pop();
+    if (pulse) {
+      (*high_count)++;
+    } else {
+      (*low_count)++;
+    }
     modules[destination]->receive_pulse(pulse, source, pulse_queue);
   }
+  debug_log("**** New Run End ****", true, "");
+}
+
+void run_simulation(unordered_map<string, unique_ptr<Module>>& modules,
+                    PulseQueue& pulse_queue, int* low_count, int* high_count,
+                    int* runs) {
+  auto initial_state = compute_state(modules);
+  auto current_state = initial_state;
+  do {
+    run_simulation_helper(modules, pulse_queue, low_count, high_count);
+    current_state = compute_state(modules);
+    (*runs)++;
+  } while (current_state != initial_state);
 }

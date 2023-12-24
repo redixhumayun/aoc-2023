@@ -6,7 +6,7 @@
 
 #include "debug.h"
 
-enum ModuleType { FlipFlop, Conjunction, Broadcaster };
+enum ModuleType { Untyped, FlipFlop, Conjunction, Broadcaster };
 
 ModuleType determine_module_type(const string& module_name) {
   if (module_name[0] == '%') {
@@ -16,7 +16,7 @@ ModuleType determine_module_type(const string& module_name) {
   } else if (module_name == "broadcaster") {
     return Broadcaster;
   }
-  return Broadcaster;  // Default, adjust as needed
+  return Untyped;  // Default, adjust as needed
 }
 
 void parse_input_file(const string& filename,
@@ -42,12 +42,19 @@ void parse_input_file(const string& filename,
       switch (type) {
         case FlipFlop:
           modules[module_name] = make_unique<FlipFlopModule>();
+          modules[module_name]->key = module_name;
           break;
         case Conjunction:
           modules[module_name] = make_unique<ConjunctionModule>();
+          modules[module_name]->key = module_name;
           break;
         case Broadcaster:
           modules[module_name] = make_unique<BroadcastModule>();
+          modules[module_name]->key = module_name;
+          break;
+        case Untyped:
+          modules[module_name] = make_unique<UntypedModule>();
+          modules[module_name]->key = module_name;
           break;
       }
     }
@@ -75,6 +82,10 @@ void parse_input_file(const string& filename,
         auto& conjunction_module =
             dynamic_cast<ConjunctionModule&>(*modules[dest]);
         conjunction_module.state[module_name] = false;
+      } else if (modules.find(dest) == modules.end()) {
+        //  this module is not present on the LHS so it doesn't have any outputs
+        modules[dest] = make_unique<UntypedModule>();
+        modules[dest]->key = dest;
       }
     }
   }
@@ -84,7 +95,7 @@ void parse_input_file(const string& filename,
 
 int main() {
   unordered_map<string, unique_ptr<Module>> modules;
-  parse_input_file("puzzle-20-test.txt", modules);
+  parse_input_file("puzzle-20-input.txt", modules);
   for (const auto& [string, class_ptr] : modules) {
     debug_log("Module: ", true, string, " Type: ", class_ptr->name);
     debug_log("Destinations are: ", false, "");
@@ -101,4 +112,20 @@ int main() {
       debug_log("", true, "");
     }
   }
+  PulseQueue pulse_queue;
+  int low_count = 0;
+  int high_count = 0;
+  int runs = 0;
+  run_simulation(modules, pulse_queue, &low_count, &high_count, &runs);
+
+  float average_low_count = (double)low_count / runs;
+  float average_high_count = (double)high_count / runs;
+  float result = average_low_count * 1000 * average_high_count * 1000;
+
+  debug_log("Low count: ", true, low_count);
+  debug_log("High count: ", true, high_count);
+  debug_log("Runs: ", true, runs);
+  debug_log("Average low count: ", true, average_low_count);
+  debug_log("Average high count: ", true, average_high_count);
+  debug_log("Result: ", true, result);
 }
