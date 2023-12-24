@@ -15,6 +15,8 @@ void FlipFlopModule::receive_pulse(bool pulse, const string& source,
   pulse_queue.push({this->name, destinations.front(), false});
 }
 
+string FlipFlopModule::get_state() const { return this->state ? "1" : "0"; }
+
 void ConjunctionModule::receive_pulse(bool pulse, const string& source,
                                       PulseQueue& pulse_queue) {
   this->state[source] = pulse;
@@ -38,6 +40,14 @@ void ConjunctionModule::receive_pulse(bool pulse, const string& source,
   }
 }
 
+string ConjunctionModule::get_state() const {
+  string state_string = "";
+  for (const auto& [key, value] : this->state) {
+    state_string += key + ":" + (value ? "1" : "0") + ";";
+  }
+  return state_string;
+}
+
 void BroadcastModule::receive_pulse(bool pulse, const string& source,
                                     PulseQueue& pulse_queue) {
   for (const auto& destination : destinations) {
@@ -45,8 +55,20 @@ void BroadcastModule::receive_pulse(bool pulse, const string& source,
   }
 }
 
+string BroadcastModule::get_state() const { return ""; }
+
+auto compute_state(unordered_map<string, unique_ptr<Module>>& modules)
+    -> std::unordered_map<std::string, std::string> {
+  std::unordered_map<std::string, std::string> state;
+  for (const auto& [key, module] : modules) {
+    state[key] = module->get_state();
+  }
+  return state;
+}
+
 void run_simulation(unordered_map<string, unique_ptr<Module>>& modules,
-                    queue<pair<string, bool>>& pulse_queue) {
+                    PulseQueue& pulse_queue) {
+  auto initial_state = compute_state(modules);
   auto modules_it = modules.find("broadcaster");
   if (modules_it == modules.end()) {
     throw runtime_error("No broadcaster module found");
@@ -54,9 +76,13 @@ void run_simulation(unordered_map<string, unique_ptr<Module>>& modules,
 
   auto destinations = modules_it->second->destinations;
   for (const auto& destination : destinations) {
-    pulse_queue.push({destination, true});
+    pulse_queue.push(
+        {.source = "broadcaster", .destination = destination, .pulse = true});
   }
 
   //  now process everything in queue
-  std::string source = "";
+  while (!pulse_queue.empty()) {
+    const auto& [source, destination, pulse] = pulse_queue.front();
+    modules[destination]->receive_pulse(pulse, source, pulse_queue);
+  }
 }

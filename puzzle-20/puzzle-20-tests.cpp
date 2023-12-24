@@ -82,3 +82,24 @@ TEST(BroadcastModuleTest, PulseForwarding) {
     pulse_queue.pop();
   }
 }
+
+TEST(ComputeState, ComputeState) {
+  unordered_map<string, unique_ptr<Module>> modules;
+  modules["a"] = make_unique<FlipFlopModule>();
+  dynamic_cast<FlipFlopModule&>(*modules["a"]).state = true;
+  modules["a"]->destinations = {"c"};
+
+  modules["b"] = make_unique<FlipFlopModule>();
+  dynamic_cast<FlipFlopModule&>(*modules["b"]).state = false;
+  modules["b"]->destinations = {"c"};
+
+  modules["c"] = make_unique<ConjunctionModule>();
+  dynamic_cast<ConjunctionModule&>(*modules["c"]).state["a"] = true;
+  dynamic_cast<ConjunctionModule&>(*modules["c"]).state["b"] = false;
+  modules["c"]->destinations = {"a"};
+
+  auto state = compute_state(modules);
+  ASSERT_EQ(state["a"], "1");
+  ASSERT_EQ(state["b"], "0");
+  ASSERT_EQ(state["c"], "a:1;b:0;");
+}
