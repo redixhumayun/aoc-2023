@@ -95,7 +95,7 @@ void parse_input_file(const string& filename,
 
 int main() {
   unordered_map<string, unique_ptr<Module>> modules;
-  parse_input_file("puzzle-20-input.txt", modules);
+  parse_input_file("puzzle-20-test.txt", modules);
   for (const auto& [string, class_ptr] : modules) {
     debug_log("Module: ", true, string, " Type: ", class_ptr->name);
     debug_log("Destinations are: ", false, "");
